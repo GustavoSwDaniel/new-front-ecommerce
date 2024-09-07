@@ -1,56 +1,61 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import Cookie from 'js-cookie';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faShoppingCart, faUser, faSearch } from '@fortawesome/free-solid-svg-icons';
 import logo from '../../assets/logo.png';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchCartCount } from '../../slices/cartSlice';
+import { fetchProductByName } from '../../slices/productSlice';
 
 const Header = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const isLoggedIn = true;
-  const userName = "John Doe";
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState('');
   const wrapperRef = useRef(null);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const cartCount = useSelector((state) => state.cart.cartCount);
+  const { searchResults, status, error } = useSelector((state) => state.products);
+
+
+  useEffect(() => {
+    const token = Cookie.get('token');
+    if (token) {
+      setIsLoggedIn(true);
+      const name = Cookie.get('name');
+      setUserName(name || 'Usuário');
+    }
+    dispatch(fetchCartCount());
+  }, [dispatch]);
 
   useEffect(() => {
     if (searchTerm.length >= 3) {
-      // Simulate an API call to get search suggestions with images
-      const fakeSuggestions = [
-        {
-          name: "Placa de Vídeo RX 6600",
-          img: "https://via.placeholder.com/50"
-        },
-        {
-          name: "Placa Mãe MSI B450",
-          img: "https://via.placeholder.com/50"
-        },
-        {
-          name: "Placa Mãe Asus TUF",
-          img: "https://via.placeholder.com/50"
-        },
-        {
-          name: "Placa de Vídeo GTX 1650",
-          img: "https://via.placeholder.com/50"
-        },
-        {
-          name: "Processador Ryzen 5 3600",
-          img: "https://via.placeholder.com/50"
-        },
-      ].filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      setSuggestions(fakeSuggestions);
+      dispatch(fetchProductByName(searchTerm))
+        .then((result) => {
+          if (result.payload && result.payload.data) {
+            setSuggestions(result.payload.data.slice(0, 3));
+          } else {
+            setSuggestions([]);
+          }
+        })
+        .catch((error) => {
+          console.error("Erro ao buscar os produtos:", error);
+          setSuggestions([]);
+        });
     } else {
       setSuggestions([]);
     }
-  }, [searchTerm]);
-
-  const handleClickOutside = (event) => {
-    if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-      setSuggestions([]);
-    }
-  };
+  }, [searchTerm, dispatch]);
 
   useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setSuggestions([]);
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -71,25 +76,34 @@ const Header = () => {
     setSuggestions([]);
   };
 
+  const handleLogout = () => {
+    Cookie.remove('token');
+    Cookie.remove('name');
+    setIsLoggedIn(false);
+    setUserName('');
+    navigate('/');
+  };
+
   return (
-    <header className="bg-purple-700 p-2 text-white flex flex-col items-center">
-      <div className="flex justify-between items-center w-full max-w-6xl">
-        <div className="flex items-center">
+    <header className="bg-purple-700 p-2 text-white flex flex-col items-center w-full">
+      <div className="flex flex-wrap justify-between items-center w-full max-w-6xl p-2">
+        <div className="flex items-center flex-shrink-0">
           <Link to="/">
-            <img src={logo} alt="EnowShop Logo" className="h-24 mr-3" /> 
+            <img src={logo} alt="EnowShop Logo" className="h-12 md:h-24 mr-3" /> 
           </Link>
         </div>
-        <div className="flex items-center w-full justify-center">
-          <div ref={wrapperRef} className="relative w-1/2 max-w-lg">
-            <form onSubmit={handleSearchSubmit}>
+
+        <div className="flex items-center w-full md:w-3/4 lg:w-1/2 justify-center mt-2 md:mt-0">
+          <div ref={wrapperRef} className="relative w-full">
+            <form onSubmit={handleSearchSubmit} className="flex">
               <input 
                 type="text" 
                 placeholder="Pesquise" 
-                className="p-2 rounded w-full text-gray-800"
+                className="p-2 rounded-l w-full text-gray-800"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <button className="absolute right-0 top-0 bottom-0 p-2 bg-purple-500 rounded-r text-white hover:bg-purple-600" type="submit">
+              <button className="p-2 bg-purple-500 rounded-r text-white hover:bg-purple-600" type="submit">
                 <FontAwesomeIcon icon={faSearch} />
               </button>
             </form>
@@ -101,7 +115,7 @@ const Header = () => {
                     className="p-2 cursor-pointer hover:bg-gray-200 flex items-center"
                     onClick={() => handleSuggestionClick(suggestion.name)}
                   >
-                    <img src={suggestion.img} alt={suggestion.name} className="w-10 h-10 object-contain mr-2" />
+                    <img src={suggestion.image_url} alt={suggestion.name} className="w-10 h-10 object-contain mr-2" />
                     <span>{suggestion.name}</span>
                   </li>
                 ))}
@@ -109,35 +123,31 @@ const Header = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-6 mt-2 md:mt-0">
           {isLoggedIn ? (
             <div className="flex items-center space-x-2">
               <span>Olá, {userName}</span>
               <Link to="/profile" className="hover:text-yellow-400">
-                <FontAwesomeIcon icon={faUser} className="text-2xl" />
+                <FontAwesomeIcon icon={faUser} className="text-3xl" />
               </Link>
+              <button onClick={handleLogout} className="hover:text-yellow-400">
+                Sair
+              </button>
             </div>
           ) : (
             <Link to="/login" className="hover:text-yellow-400 flex items-center">
-              <FontAwesomeIcon icon={faUser} className="text-2xl" />
-              <span className="ml-2">Faça LOGIN ou crie seu CADASTRO</span>
+              <FontAwesomeIcon icon={faUser} className="text-3xl" />
+              <span className="ml-2 hidden md:inline">Faça LOGIN ou crie seu CADASTRO</span>
             </Link>
           )}
-          <Link to="/cart" className="hover:text-yellow-400">
-            <FontAwesomeIcon icon={faShoppingCart} className="text-2xl" />
+          <Link to="/cart" className="hover:text-yellow-400 relative">
+            <FontAwesomeIcon icon={faShoppingCart} className="text-3xl" />
+            {cartCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-lg">{cartCount}</span>
+            )}
           </Link>
         </div>
       </div>
-      <nav className="mt-4 w-full max-w-6xl">
-        <ul className="flex space-x-4 justify-center">
-          <li><Link to="/search?department=departamentos" className="hover:text-yellow-400">Departamentos</Link></li>
-          <li><Link to="/search?department=monte-seu-pc" className="hover:text-yellow-400">Monte seu PC</Link></li>
-          <li><Link to="/search?department=oferta-do-dia" className="hover:text-yellow-400">Oferta do Dia</Link></li>
-          <li><Link to="/search?department=cupons" className="hover:text-yellow-400">Cupons</Link></li>
-          <li><Link to="/search?department=entrega-flash" className="hover:text-yellow-400">Entrega Flash</Link></li>
-          <li><Link to="/search?department=baixe-o-app" className="hover:text-yellow-400">Baixe o App</Link></li>
-        </ul>
-      </nav>
     </header>
   );
 };

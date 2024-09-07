@@ -1,44 +1,73 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchOrderByUuid } from '../../slices/orderSlice';
 import OrderSummary from '../../components/OrderSummary';
 import OrderTracking from '../../components/OrderTracking';
+import { format } from 'date-fns';
+
 
 const OrderDetail = () => {
-  const order = {
-    id: '27910968',
-    date: '16/01/2022',
-    status: 'Pedido concluído.',
-    paymentMethod: 'Pagamento via CARTÃO DE CRÉDITO.',
-    installments: '2x sem juros',
-    totalProducts: 70.47,
-    shipping: 17.15,
-    total: 87.62,
-    items: [
-      {
-        name: 'Lâmpada KaBuM! Smart, RGB + Branco, 10W, Google Home e Alexa, Conexão E27 - KBSB015',
-        quantity: 1,
-        price: 70.47,
-        img: 'https://via.placeholder.com/150'
-      }
-    ],
-    tracking: {
-      carrier: 'Sedex',
-      code: 'OK821955668BR',
-      events: [
-        { date: '16/01/2022', time: '23:17', status: 'Pedido recebido' },
-        { date: '17/01/2022', time: '07:56', status: 'Enviado para a transportadora' },
-        { date: '17/01/2022', time: '18:56', status: 'Recebido pela transportadora' },
-        { date: '19/01/2022', time: '12:37', status: 'Pedido entregue' }
-      ]
-    },
-    address: 'Rua Francisco Candido Do Ribeiro, 168, vila Britania, 168, Casa, Campos do Jordão, SP'
-  };
+  const { uuid } = useParams();
+  const dispatch = useDispatch();
+  const { orderDetails, status, error } = useSelector((state) => state.order);
+
+  useEffect(() => {
+    if (uuid) {
+      dispatch(fetchOrderByUuid(uuid));
+    }
+  }, [uuid, dispatch]);
+
+  if (status === 'loading') {
+    return <div>Loading...</div>;
+  }
+
+  if (status === 'failed') {
+    return <div>Error: {error}</div>;
+  }
+
+  if (!orderDetails) {
+    return <div>No order found.</div>;
+  }
+  const tracking = {
+    carrier: 'Sedex',
+    code: 'OK821955668BR',
+    events: [
+      { date: '16/01/2022', time: '23:17', status: 'Pedido recebido' },
+      { date: '17/01/2022', time: '07:56', status: 'Enviado para a transportadora' },
+      { date: '17/01/2022', time: '18:56', status: 'Recebido pela transportadora' },
+      { date: '19/01/2022', time: '12:37', status: 'Pedido entregue' }
+    ]
+  }
+  const shippingCost = orderDetails.shipping ? parseFloat(orderDetails.shipping) : 0;
 
   return (
     <div className="container mx-auto p-4">
       <div className="bg-white p-6 rounded-lg shadow-lg">
         <h1 className="text-3xl font-bold text-purple-700 mb-4">Detalhes do Pedido</h1>
-        <OrderSummary order={order} />
-        <OrderTracking tracking={order.tracking} />
+        {orderDetails && (
+          <>
+            <OrderSummary order={{
+              id: orderDetails.uuid,
+              date: format(new Date(orderDetails.created_at), 'dd/MM/yyyy HH:mm:ss'),
+              status: orderDetails.status,
+              paymentMethod: `Pagamento via ${orderDetails.payment_method}`,
+              installments: 'N/A', 
+              totalProducts: parseFloat(orderDetails.total_amount),
+              shipping: shippingCost,
+              total: parseFloat(orderDetails.total_amount) + shippingCost,
+              items: orderDetails.order_items?.map(item => ({
+                name: item.product.name,
+                quantity: item.quantity,
+                id: item.product.id,
+                img: item.product.image_url,
+                is_rated: item.is_rated
+              })),
+              address: `${orderDetails.address.street}, ${orderDetails.address.number}, ${orderDetails.address.village}, ${orderDetails.address.city}, ${orderDetails.address.state}, ${orderDetails.address.cep}, ${orderDetails.address.complement}`,
+            }} />
+            <OrderTracking tracking={tracking} /> 
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+// src/components/ProductCarousel.js
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Carousel from 'react-multi-carousel';
@@ -22,7 +23,7 @@ const responsive = {
   },
 };
 
-const ProductCarousel = () => {
+const ProductCarousel = ({ items }) => {
   const navigate = useNavigate();
 
   const handleItemClick = (id) => {
@@ -39,23 +40,20 @@ const ProductCarousel = () => {
           centerMode={false}
           partialVisible={true}
           containerClass="carousel-container"
-          itemClass="p-4" // Adiciona padding horizontal e vertical entre os itens
+          itemClass="p-4"
         >
-          {[
-            { id: 1, img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg', name: 'PlayStation 3', price: 'R$ 1.200,00' },
-            { id: 2, img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg', name: 'Notebook Samsung Galaxy Book3 360', price: 'R$ 3.999,99' },
-            { id: 3, img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg', name: 'PlayStation 3', price: 'R$ 1.200,00' },
-            { id: 4, img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg', name: 'PlayStation 3', price: 'R$ 1.200,00' },
-            { id: 5, img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg', name: 'PlayStation 3', price: 'R$ 1.200,00' },
-            { id: 6, img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg', name: 'PlayStation 3', price: 'R$ 1.200,00' },
-            { id: 7, img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg', name: 'PlayStation 3', price: 'R$ 1.200,00' },
-            { id: 8, img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg', name: 'PlayStation 3', price: 'R$ 1.200,00' },
-          ].map((product, index) => (
-            <div key={index} className="border border-orange-500 bg-white rounded-lg shadow-lg hover:bg-orange-50 transition-colors relative flex flex-col items-center w-full h-96 cursor-pointer" onClick={() => handleItemClick(product.id)}>
+          {items?.map((product) => (
+            <div
+              key={product.sku}
+              className="border border-orange-500 bg-white rounded-lg shadow-lg hover:bg-orange-50 transition-colors relative flex flex-col items-center w-full h-96 cursor-pointer"
+              onClick={() => handleItemClick(product.sku)}
+            >
               <div className="w-full h-3/4 flex items-center justify-center overflow-hidden">
-                <img src={product.img} alt={product.name} className="w-full h-full object-contain" />
+                <img src={product.image_url} alt={product.name} className="w-full h-full object-contain" />
               </div>
-              <p className="text-purple-800 font-bold mt-2 text-center text-sm">{product.name} - {product.price}</p>
+              <p className="text-purple-800 font-bold mt-2 text-center text-sm">
+                {product.name} - {product.price}
+              </p>
             </div>
           ))}
         </Carousel>

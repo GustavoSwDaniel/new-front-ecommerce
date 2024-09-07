@@ -1,40 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchCartItems,
+  removeCartItem,
+  increaseQuantity,
+  decreaseQuantity,
+  updateParams,
+  setOrderData
+} from '../../slices/cartSlice';
 import CartItem from '../../components/CartItem';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import RecommendedProducts from '../../components/RecommendedProducts';
+import { useLoading } from '../../context/LoadingContext';
+import { fetchUser } from '../../slices/userSlice';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import Cookie from 'js-cookie';
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState([]);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { setLoading } = useLoading();
+  const { items, cart_total, quoets, quoet_value, chosen_quote, cart_total_term, total_without_offer, offer } = useSelector((state) => state.cart.data);
+  const { status, params } = useSelector((state) => state.cart);
+  const { userInfo } = useSelector((state) => state.user);
+
   const [cep, setCep] = useState('');
   const [shippingOptions, setShippingOptions] = useState([]);
-  const [selectedShipping, setSelectedShipping] = useState(null);
   const [promoCode, setPromoCode] = useState('');
-  const [discount, setDiscount] = useState(0);
-  const navigate = useNavigate();
+  const [localItems, setLocalItems] = useState([]);
+  const location = useLocation();
 
   useEffect(() => {
-    // Simula a recuperação dos itens do carrinho
-    const fetchCartItems = async () => {
-      const items = [
-        { id: 1, name: "Mouse Gamer Razer Deathadder Essential", price: 226.90, img: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg" },
-        { id: 2, name: "Impressora 3D Creality K1", price: 2829.99, img: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Sony-PlayStation-3-2001A-wController-L.jpg/640px-Sony-PlayStation-3-2001A-wController-L.jpg" },
-      ];
-      setCartItems(items);
+    const token = Cookie.get('token');
+    if (token) {
+      dispatch(fetchCartItems());
+      if (!userInfo || Object.keys(userInfo).length === 0) {
+        dispatch(fetchUser());
+      }
+    } else {
+      const cart = Cookie.get('cart') ? JSON.parse(Cookie.get('cart')) : [];
+      setLocalItems(cart);
+    }
+  }, [dispatch, userInfo]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(updateParams({ type_send: null }));
     };
+  }, [location, dispatch]);
 
-    fetchCartItems();
-  }, []);
+  useEffect(() => {
+    if (status === 'loading') {
+      setLoading(true);
+    } else {
+      setLoading(false);
+    }
+  }, [status, setLoading]);
 
-  const removeItem = (id) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
+  const handleRemoveItem = async (sku) => {
+    const token = Cookie.get('token');
+    if (token) {
+      await dispatch(removeCartItem(sku));
+    } else {
+      let cart = Cookie.get('cart') ? JSON.parse(Cookie.get('cart')) : [];
+      cart = cart.filter(item => item.sku !== sku);
+      Cookie.set('cart', JSON.stringify(cart), { expires: 7 });
+      setLocalItems(cart);
+      toast.success('Produto removido do carrinho temporário!');
+    }
   };
 
-  const calculateTotal = () => {
-    const subtotal = cartItems.reduce((total, item) => total + item.price, 0);
-    const shippingCost = selectedShipping ? selectedShipping.price : 0;
-    return (subtotal + shippingCost - discount).toFixed(2);
+  const handlePromoCodeChange = (cupon) => {
+    dispatch(updateParams({ cuponDesconto: cupon }));
+  };
+
+  const handleIncreaseQuantity = async (sku) => {
+    const token = Cookie.get('token');
+    if (token) {
+      await dispatch(increaseQuantity(sku));
+    } else {
+      let cart = Cookie.get('cart') ? JSON.parse(Cookie.get('cart')) : [];
+      cart = cart.map(item => item.sku === sku ? { ...item, quantity_car: item.quantity_car + 1 } : item);
+      Cookie.set('cart', JSON.stringify(cart), { expires: 7 });
+      setLocalItems(cart);
+      toast.success('Quantidade aumentada no carrinho temporário!');
+    }
+  };
+
+  const handleDecreaseQuantity = async (sku) => {
+    const token = Cookie.get('token');
+    if (token) {
+      await dispatch(decreaseQuantity(sku));
+    } else {
+      let cart = Cookie.get('cart') ? JSON.parse(Cookie.get('cart')) : [];
+      cart = cart.map(item => item.sku === sku && item.quantity_car > 1 ? { ...item, quantity_car: item.quantity_car - 1 } : item);
+      Cookie.set('cart', JSON.stringify(cart), { expires: 7 });
+      setLocalItems(cart);
+      toast.success('Quantidade diminuída no carrinho temporário!');
+    }
   };
 
   const handleCepChange = (e) => {
@@ -42,42 +108,70 @@ const Cart = () => {
   };
 
   const fetchShippingOptions = async (cep) => {
-    // Simula a recuperação das opções de frete
-    const options = [
-      { type: 'Sedex', price: 20.00, estimatedTime: '2-3 dias úteis' },
-      { type: 'PAC', price: 10.00, estimatedTime: '5-7 dias úteis' },
-      { type: 'Transportadora', price: 30.00, estimatedTime: '1-2 dias úteis' },
-    ];
-    setShippingOptions(options);
+    await setShippingOptions(quoets);
   };
 
-  const handleShippingChange = (option) => {
-    setSelectedShipping(option);
+  const handleShippingChange = async (option) => {
+    await dispatch(updateParams({ type_send: option }));
+    await dispatch(fetchCartItems());
   };
 
   const applyPromoCode = () => {
-    // Simula a aplicação de um código de promoção
-    if (promoCode === 'DESCONTO10') {
-      setDiscount(10.00);
-    }
+    dispatch(fetchCartItems());
+  };
+
+  const createOrder = () => {
+    const orderItems = Cookie.get('token') ? items : localItems;
+    const order = {
+      quote_type_id: params.type_send,
+      quote_type: chosen_quote,
+      address_id: userInfo?.user_address?.[0]?.id || null,
+      quote_value: quoet_value,
+      total_value: cart_total,
+      purchase_amount: cart_total,
+      orderSubtotalValue: total_without_offer,
+      items: orderItems.map(item => ({
+        uuid: item.sku,
+        quantity: item.quantity_car
+      }))
+    };
+
+    dispatch(setOrderData(order));
+    navigate('/payment');
   };
 
   const handleCheckout = () => {
-    navigate('/payment');
+    const orderItems = Cookie.get('token') ? items : localItems;
+    if (orderItems.length === 0) {
+      toast.error('Carrinho vazio, não é possível finalizar a compra!');
+      return;
+    }
+    if (params.type_send === '' || params.type_send === null) {
+      alert("Escolha um tipo de frete");
+    } else {
+      createOrder();
+    }
   };
 
   return (
     <div>
       <Header />
+      <ToastContainer />
       <div className="container mx-auto p-4">
         <h1 className="text-3xl font-bold text-purple-700 mb-4">Carrinho de Compras</h1>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
-            {cartItems.length === 0 ? (
+            {localItems.length === 0 && items.length === 0 ? (
               <p className="text-gray-700">Seu carrinho está vazio.</p>
             ) : (
-              cartItems.map(item => (
-                <CartItem key={item.id} item={item} onRemove={removeItem} />
+              (Cookie.get('token') ? items : localItems).map(item => (
+                <CartItem
+                  key={item.sku}
+                  item={item}
+                  onRemove={handleRemoveItem}
+                  onIncrease={handleIncreaseQuantity}
+                  onDecrease={handleDecreaseQuantity}
+                />
               ))
             )}
             <div className="mt-4 p-4 bg-white shadow-md rounded-lg">
@@ -100,13 +194,14 @@ const Cart = () => {
               {shippingOptions.length > 0 && (
                 <div className="mt-2">
                   {shippingOptions.map(option => (
-                    <div key={option.type} className="flex justify-between items-center text-gray-700 mt-2">
-                      <span>{option.type} - {option.estimatedTime}</span>
-                      <span>R$ {option.price.toFixed(2)}</span>
+                    <div key={option.id} className="flex justify-between items-center text-gray-700 mt-2">
+                      <span>{option.name} - {option.delivery_time} dias úteis</span>
+                      <span>R$ {parseFloat(option.price).toFixed(2)}</span>
                       <input
-                        type="checkbox"
-                        checked={selectedShipping?.type === option.type}
-                        onChange={() => handleShippingChange(option)}
+                        type="radio"
+                        name="shippingOption"
+                        checked={params?.type_send === option.id}
+                        onChange={() => handleShippingChange(option.id)}
                       />
                     </div>
                   ))}
@@ -118,21 +213,21 @@ const Cart = () => {
             <h2 className="text-xl font-bold text-purple-700 mb-4">Resumo do Pedido</h2>
             <div className="flex justify-between mb-2">
               <span className="text-gray-700">Subtotal</span>
-              <span className="text-gray-700">R$ {cartItems.reduce((total, item) => total + item.price, 0).toFixed(2)}</span>
+              <span className="text-gray-700">R$ {parseFloat(total_without_offer).toFixed(2)}</span>
             </div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-700">Frete</span>
               <span className="text-gray-700">
-                {selectedShipping ? `R$ ${selectedShipping.price.toFixed(2)}` : 'Selecione uma opção'}
+                {quoet_value ? `R$ ${parseFloat(quoet_value).toFixed(2)}` : 'Selecione uma opção'}
               </span>
             </div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-700">Desconto</span>
-              <span className="text-gray-700">R$ {discount.toFixed(2)}</span>
+              <span className="text-gray-700">- R$ {parseFloat(offer).toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold text-xl">
               <span>Total</span>
-              <span>R$ {calculateTotal()}</span>
+              <span>R$ {cart_total_term}</span>
             </div>
             <button
               className="w-full bg-orange-600 text-white font-bold py-3 rounded hover:bg-orange-700 transition mt-4"
@@ -145,8 +240,8 @@ const Cart = () => {
               <div className="flex mt-2">
                 <input
                   type="text"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
+                  value={params.cuponDesconto}
+                  onChange={(e) => handlePromoCodeChange(e.target.value)}
                   placeholder="Digite o código"
                   className="w-full p-2 border rounded-l"
                 />

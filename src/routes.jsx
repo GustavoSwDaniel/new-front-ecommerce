@@ -32,7 +32,7 @@ const Routers = () => {
       <Route path="/creditCard" element={<CrediCardPaymentPage />} />
       <Route path="/profile" element={<UserProfilePage />} />
       <Route path="/orders" element={<OrdersPage />} />
-      <Route path="/order/:id" element={<OrderPage />} />
+      <Route path="/order/:uuid" element={<OrderPage />} />
       <Route path="/search" element={<SearchResultsPage />} />
     </Routes>
   );

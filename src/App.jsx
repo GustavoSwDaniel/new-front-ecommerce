@@ -1,9 +1,12 @@
 import Routers from './routes'
+import { LoadingProvider } from './context/LoadingContext'
 
 function App() {
   return (
    <>
-    <Routers/>
+    <LoadingProvider>
+      <Routers/>
+    </LoadingProvider>
     </>
   );
 }
